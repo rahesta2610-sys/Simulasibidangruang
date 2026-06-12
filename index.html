@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulasi Bangun Ruang</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  :root {
+    --bg: #0a0f1e;
+    --surface: #111827;
+    --card: #1a2235;
+    --border: #1e2d47;
+    --accent: #3b82f6;
+    --accent2: #8b5cf6;
+    --accent3: #06b6d4;
+    --gold: #f59e0b;
+    --green: #10b981;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --white: #ffffff;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Starfield background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.4) 0%, transparent 100%),
+      radial-gradient(1px 1px at 60% 70%, rgba(255,255,255,0.3) 0%, transparent 100%),
+      radial-gradient(1px 1px at 80% 20%, rgba(255,255,255,0.25) 0%, transparent 100%),
+      radial-gradient(1px 1px at 10% 80%, rgba(255,255,255,0.2) 0%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 45% 50%, rgba(255,255,255,0.15) 0%, transparent 100%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  header {
+    text-align: center;
+    padding: 3rem 1rem 2rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .header-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.3em;
+    color: var(--accent3);
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+
+  h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--white) 0%, var(--accent3) 50%, var(--accent2) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1.1;
+    margin-bottom: 0.75rem;
+  }
+
+  .header-sub {
+    color: var(--muted);
+    font-size: 1rem;
+    font-weight: 400;
+  }
+
+  /* Shape selector tabs */
+  .tab-bar {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    padding: 0 1rem 2rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .tab-btn {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 0.6rem 1.4rem;
+    border-radius: 2rem;
+    cursor: pointer;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.25s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .tab-btn:hover {
+    border-color: var(--accent);
+    color: var(--white);
+  }
+
+  .tab-btn.active {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-color: transparent;
+    color: var(--white);
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+  }
+
+  /* Main content */
+  .main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 1.5rem 4rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .shape-panel {
+    display: none;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    animation: fadeIn 0.4s ease;
+  }
+
+  .shape-panel.active { display: grid; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (max-width: 700px) {
+    .shape-panel { grid-template-columns: 1fr; }
+  }
+
+  /* Canvas card */
+  .canvas-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 1.25rem;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    min-height: 340px;
+    position: relative;
+  }
+
+  .canvas-card canvas {
+    display: block;
+  }
+
+  .shape-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-top: 1rem;
+  }
+
+  /* Calc card */
+  .calc-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 1.25rem;
+    padding: 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .calc-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--white);
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .calc-title .icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+  }
+
+  .input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .input-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .input-row label {
+    font-size: 0.85rem;
+    color: var(--muted);
+    min-width: 110px;
+    font-weight: 500;
+  }
+
+  .input-row input[type=range] {
+    flex: 1;
+    -webkit-appearance: none;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+  }
+
+  .input-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(59,130,246,0.5);
+  }
+
+  .val-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--accent3);
+    min-width: 36px;
+    text-align: right;
+    font-weight: 600;
+  }
+
+  /* Result boxes */
+  .result-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  .result-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 0.9rem 1rem;
+    transition: border-color 0.2s;
+  }
+
+  .result-box:hover { border-color: var(--accent); }
+
+  .result-box-label {
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.35rem;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .result-box-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--white);
+    transition: color 0.2s;
+  }
+
+  .result-box-val.highlight { color: var(--gold); }
+
+  /* Formula section */
+  .formula-block {
+    background: var(--surface);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 0.5rem 0.5rem 0;
+    padding: 0.85rem 1rem;
+  }
+
+  .formula-block .formula-title {
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .formula-block .formula-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    color: var(--text);
+    line-height: 1.7;
+  }
+
+  .formula-text span.sym { color: var(--gold); }
+  .formula-text span.val { color: var(--green); }
+
+  /* Step breakdown */
+  .steps-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .step-item {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--muted);
+    padding: 0.4rem 0.6rem;
+    border-radius: 0.4rem;
+    background: rgba(255,255,255,0.02);
+    transition: background 0.2s, color 0.2s;
+  }
+
+  .step-item.active-step {
+    background: rgba(59,130,246,0.08);
+    color: var(--text);
+  }
+
+  .step-num {
+    color: var(--accent3);
+    margin-right: 0.5rem;
+  }
+
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-eyebrow">Matematika · Geometri</div>
+  <h1>Simulasi Bangun Ruang</h1>
+  <p class="header-sub">Pilih bangun, geser ukuran, lihat perhitungan secara real-time</p>
+</header>
+
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchShape('kubus')">🟦 Kubus</button>
+  <button class="tab-btn" onclick="switchShape('balok')">📦 Balok</button>
+  <button class="tab-btn" onclick="switchShape('bola')">🔵 Bola</button>
+  <button class="tab-btn" onclick="switchShape('kerucut')">🔺 Kerucut</button>
+  <button class="tab-btn" onclick="switchShape('tabung')">🥫 Tabung</button>
+  <button class="tab-btn" onclick="switchShape('limas')">△ Limas</button>
+</div>
+
+<div class="main">
+
+  <!-- KUBUS -->
+  <div class="shape-panel active" id="panel-kubus">
+    <div class="canvas-card">
+      <canvas id="c-kubus" width="280" height="280"></canvas>
+      <div class="shape-label">Kubus · Rotasi otomatis</div>
+    </div>
+    <div class="calc-card">
+      <div class="calc-title"><span class="icon">🟦</span> Kubus</div>
+      <div class="input-group">
+        <div class="input-row">
+          <label>Sisi (s)</label>
+          <input type="range" id="kubus-s" min="2" max="15" value="6" oninput="updateKubus()">
+          <span class="val-badge" id="kubus-s-val">6</span>
+        </div>
+      </div>
+      <div class="result-grid">
+        <div class="result-box"><div class="result-box-label">Volume</div><div class="result-box-val highlight" id="kubus-vol">–</div></div>
+        <div class="result-box"><div class="result-box-label">Luas Permukaan</div><div class="result-box-val" id="kubus-lp">–</div></div>
+        <div class="result-box"><div class="result-box-label">Diagonal Ruang</div><div class="result-box-val" id="kubus-dr">–</div></div>
+        <div class="result-box"><div class="result-box-label">Diagonal Bidang</div><div class="result-box-val" id="kubus-db">–</div></div>
+      </div>
+      <div class="formula-block">
+        <div class="formula-title">Rumus</div>
+        <div class="formula-text" id="kubus-formula">–</div>
+      </div>
+      <div class="steps-list" id="kubus-steps"></div>
+    </div>
+  </div>
+
+  <!-- BALOK -->
+  <div class="shape-panel" id="panel-balok">
+    <div class="canvas-card">
+      <canvas id="c-balok" width="280" height="280"></canvas>
+      <div class="shape-label">Balok · Rotasi otomatis</div>
+    </div>
+    <div class="calc-card">
+      <div class="calc-title"><span class="icon">📦</span> Balok</div>
+      <div class="input-group">
+        <div class="input-row"><label>Panjang (p)</label><input type="range" id="balok-p" min="2" max="14" value="8" oninput="updateBalok()"><span class="val-badge" id="balok-p-val">8</span></div>
+        <div class="input-row"><label>Lebar (l)</label><input type="range" id="balok-l" min="2" max="14" value="5" oninput="updateBalok()"><span class="val-badge" id="balok-l-val">5</span></div>
+        <div class="input-row"><label>Tinggi (t)</label><input type="range" id="balok-t" min="2" max="14" value="4" oninput="updateBalok()"><span class="val-badge" id="balok-t-val">4</span></div>
+      </div>
+      <div class="result-grid">
+        <div class="result-box"><div class="result-box-label">Volume</div><div class="result-box-val highlight" id="balok-vol">–</div></div>
+        <div class="result-box"><div class="result-box-label">Luas Permukaan</div><div class="result-box-val" id="balok-lp">–</div></div>
+        <div class="result-box"><div class="result-box-label">Diagonal Ruang</div><div class="result-box-val" id="balok-dr">–</div></div>
+      </div>
+      <div class="formula-block"><div class="formula-title">Rumus</div><div class="formula-text" id="balok-formula">–</div></div>
+      <div class="steps-list" id="balok-steps"></div>
+    </div>
+  </div>
+
+  <!-- BOLA -->
+  <div class="shape-panel" id="panel-bola">
+    <div class="canvas-card">
+      <canvas id="c-bola" width="280" height="280"></canvas>
+      <div class="shape-label">Bola · Rotasi otomatis</div>
+    </div>
+    <div class="calc-card">
+      <div class="calc-title"><span class="icon">🔵</span> Bola</div>
+      <div class="input-group">
+        <div class="input-row"><label>Jari-jari (r)</label><input type="range" id="bola-r" min="2" max="12" value="6" oninput="updateBola()"><span class="val-badge" id="bola-r-val">6</span></div>
+      </div>
+      <div class="result-grid">
+        <div class="result-box"><div class="result-box-label">Volume</div><div class="result-box-val highlight" id="bola-vol">–</div></div>
+        <div class="result-box"><div class="result-box-label">Luas Permukaan</div><div class="result-box-val" id="bola-lp">–</div></div>
+        <div class="result-box"><div class="result-box-label">Diameter</div><div class="result-box-val" id="bola-d">–</div></div>
+        <div class="result-box"><div class="result-box-label">Keliling Besar</div><div class="result-box-val" id="bola-kb">–</div></div>
+      </div>
+      <div class="formula-block"><div class="formula-title">Rumus</div><div class="formula-text" id="bola-formula">–</div></div>
+      <div class="steps-list" id="bola-steps"></div>
+    </div>
+  </div>
+
+  <!-- KERUCUT -->
+  <div class="shape-panel" id="panel-kerucut">
+    <div class="canvas-card">
+      <canvas id="c-kerucut" width="280" height="280"></canvas>
+      <div class="shape-label">Kerucut · Rotasi otomatis</div>
+    </div>
+    <div class="calc-card">
+      <div class="calc-title"><span class="icon">🔺</span> Kerucut</div>
+      <div class="input-group">
+        <div class="input-row"><label>Jari-jari (r)</label><input type="range" id="kerucut-r" min="2" max="12" value="5" oninput="updateKerucut()"><span class="val-badge" id="kerucut-r-val">5</span></div>
+        <div class="input-row"><label>Tinggi (t)</label><input type="range" id="kerucut-t" min="2" max="18" value="10" oninput="updateKerucut()"><span class="val-badge" id="kerucut-t-val">10</span></div>
+      </div>
+      <div class="result-grid">
+        <div class="result-box"><div class="result-box-label">Volume</div><div class="result-box-val highlight" id="kerucut-vol">–</div></div>
+        <div class="result-box"><div class="result-box-label">Luas Permukaan</div><div class="result-box-val" id="kerucut-lp">–</div></div>
+        <div class="result-box"><div class="result-box-label">Garis Pelukis (s)</div><div class="result-box-val" id="kerucut-s">–</div></div>
+        <div class="result-box"><div class="result-box-label">Luas Selimut</div><div class="result-box-val" id="kerucut-ls">–</div></div>
+      </div>
+      <div class="formula-block"><div class="formula-title">Rumus</div><div class="formula-text" id="kerucut-formula">–</div></div>
+      <div class="steps-list" id="kerucut-steps"></div>
+    </div>
+  </div>
+
+  <!-- TABUNG -->
+  <div class="shape-panel" id="panel-tabung">
+    <div class="canvas-card">
+      <canvas id="c-tabung" width="280" height="280"></canvas>
+      <div class="shape-label">Tabung · Rotasi otomatis</div>
+    </div>
+    <div class="calc-card">
+      <div class="calc-title"><span class="icon">🥫</span> Tabung</div>
+      <div class="input-group">
+        <div class="input-row"><label>Jari-jari (r)</label><input type="range" id="tabung-r" min="2" max="12" value="5" oninput="updateTabung()"><span class="val-badge" id="tabung-r-val">5</span></div>
+        <div class="input-row"><label>Tinggi (t)</label><input type="range" id="tabung-t" min="2" max="18" value="10" oninput="updateTabung()"><span class="val-badge" id="tabung-t-val">10</span></div>
+      </div>
+      <div class="result-grid">
+        <div class="result-box"><div class="result-box-label">Volume</div><div class="result-box-val highlight" id="tabung-vol">–</div></div>
+        <div class="result-box"><div class="result-box-label">Luas Permukaan</div><div class="result-box-val" id="tabung-lp">–</div></div>
+        <div class="result-box"><div class="result-box-label">Luas Selimut</div><div class="result-box-val" id="tabung-ls">–</div></div>
+        <div class="result-box"><div class="result-box-label">Luas Alas+Tutup</div><div class="result-box-val" id="tabung-lat">–</div></div>
+      </div>
+      <div class="formula-block"><div class="formula-title">Rumus</div><div class="formula-text" id="tabung-formula">–</div></div>
+      <div class="steps-list" id="tabung-steps"></div>
+    </div>
+  </div>
+
+  <!-- LIMAS -->
+  <div class="shape-panel" id="panel-limas">
+    <div class="canvas-card">
+      <canvas id="c-limas" width="280" height="280"></canvas>
+      <div class="shape-label">Limas Segiempat · Rotasi otomatis</div>
+    </div>
+    <div class="calc-card">
+      <div class="calc-title"><span class="icon">△</span> Limas Segiempat</div>
+      <div class="input-group">
+        <div class="input-row"><label>Alas (a)</label><input type="range" id="limas-a" min="2" max="14" value="8" oninput="updateLimas()"><span class="val-badge" id="limas-a-val">8</span></div>
+        <div class="input-row"><label>Tinggi (t)</label><input type="range" id="limas-t" min="2" max="18" value="10" oninput="updateLimas()"><span class="val-badge" id="limas-t-val">10</span></div>
+      </div>
+      <div class="result-grid">
+        <div class="result-box"><div class="result-box-label">Volume</div><div class="result-box-val highlight" id="limas-vol">–</div></div>
+        <div class="result-box"><div class="result-box-label">Luas Permukaan</div><div class="result-box-val" id="limas-lp">–</div></div>
+        <div class="result-box"><div class="result-box-label">Apotema</div><div class="result-box-val" id="limas-ap">–</div></div>
+        <div class="result-box"><div class="result-box-label">Luas Sisi Tegak</div><div class="result-box-val" id="limas-lst">–</div></div>
+      </div>
+      <div class="formula-block"><div class="formula-title">Rumus</div><div class="formula-text" id="limas-formula">–</div></div>
+      <div class="steps-list" id="limas-steps"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ─── UTILITIES ───────────────────────────────────────────────────────────────
+const π = Math.PI;
+const fmt = v => {
+  if (v >= 1000) return v.toFixed(0);
+  if (v >= 100) return v.toFixed(1);
+  return v.toFixed(2);
+};
+const setEl = (id, v) => { const e = document.getElementById(id); if(e) e.textContent = v; };
+const getVal = id => +document.getElementById(id).value;
+
+function steps(arr, container) {
+  const el = document.getElementById(container);
+  el.innerHTML = arr.map((s,i) =>
+    `<div class="step-item ${i===arr.length-1?'active-step':''}"><span class="step-num">${i+1}.</span>${s}</div>`
+  ).join('');
+}
+
+// ─── SHAPE SWITCHER ──────────────────────────────────────────────────────────
+let currentShape = 'kubus';
+
+function switchShape(name) {
+  document.querySelectorAll('.shape-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    if (b.textContent.toLowerCase().includes(name) || b.onclick.toString().includes(name)) {
+      b.classList.add('active');
+    }
+  });
+  // fix active btn
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    if (b.getAttribute('onclick') === `switchShape('${name}')`) b.classList.add('active');
+    else b.classList.remove('active');
+  });
+  currentShape = name;
+  eval('update' + name.charAt(0).toUpperCase() + name.slice(1) + '()');
+}
+
+// ─── 3D PROJECTION HELPERS ───────────────────────────────────────────────────
+function project(x, y, z, rx, ry, cx, cy, scale) {
+  // rotate Y
+  const x1 = x * Math.cos(ry) + z * Math.sin(ry);
+  const z1 = -x * Math.sin(ry) + z * Math.cos(ry);
+  // rotate X
+  const y2 = y * Math.cos(rx) - z1 * Math.sin(rx);
+  const z2 = y * Math.sin(rx) + z1 * Math.cos(rx);
+  // simple isometric-like projection
+  return { x: cx + x1 * scale, y: cy + y2 * scale };
+}
+
+function drawEdge(ctx, p1, p2, alpha, color) {
+  ctx.beginPath();
+  ctx.moveTo(p1.x, p1.y);
+  ctx.lineTo(p2.x, p2.y);
+  ctx.strokeStyle = color || `rgba(59,130,246,${alpha})`;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
+
+function fillFace(ctx, pts, color) {
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+}
+
+// ─── ANIMATION LOOP ────────
