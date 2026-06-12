@@ -573,4 +573,486 @@ function fillFace(ctx, pts, color) {
   ctx.fill();
 }
 
-// ─── ANIMATION LOOP ────────
+// ─── ANIMATION LOOP ──────────────────────────────────────────────────────────
+const angles = {};
+const animFns = {};
+let raf;
+
+function startAnim() {
+  function loop(t) {
+    const angle = t * 0.001;
+    Object.entries(animFns).forEach(([id, fn]) => fn(angle));
+    raf = requestAnimationFrame(loop);
+  }
+  if (raf) cancelAnimationFrame(raf);
+  raf = requestAnimationFrame(loop);
+}
+
+// ─── KUBUS ───────────────────────────────────────────────────────────────────
+function updateKubus() {
+  const s = getVal('kubus-s');
+  setEl('kubus-s-val', s);
+
+  const V = s ** 3;
+  const LP = 6 * s ** 2;
+  const DR = fmt(Math.sqrt(3) * s);
+  const DB = fmt(Math.sqrt(2) * s);
+
+  setEl('kubus-vol', fmt(V) + ' satuan³');
+  setEl('kubus-lp', fmt(LP) + ' satuan²');
+  setEl('kubus-dr', DR + ' satuan');
+  setEl('kubus-db', DB + ' satuan');
+
+  document.getElementById('kubus-formula').innerHTML =
+    `V = s³ = ${s}³ = <span class="val">${fmt(V)}</span>\n` +
+    `LP = 6s² = 6×${s}² = <span class="val">${fmt(LP)}</span>\n` +
+    `d ruang = s√3 = ${s}×√3 = <span class="val">${DR}</span>`;
+
+  steps([
+    `s = ${s} satuan`,
+    `s² = ${s}² = ${s*s}`,
+    `V = s³ = ${s}³ = ${fmt(V)} satuan³`,
+    `LP = 6 × s² = 6 × ${s*s} = ${fmt(LP)} satuan²`,
+    `Diagonal ruang = ${s} × √3 ≈ ${DR} satuan`
+  ], 'kubus-steps');
+}
+
+animFns['kubus'] = function(t) {
+  if (currentShape !== 'kubus') return;
+  const canvas = document.getElementById('c-kubus');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const s = getVal('kubus-s');
+  const scale = 80 / 15 * (220 / (s + 10));
+  const rx = 0.4, ry = t;
+  const cx = W / 2, cy = H / 2;
+  const h = s / 2;
+
+  const corners = [
+    [-h,-h,-h],[h,-h,-h],[h,h,-h],[-h,h,-h],
+    [-h,-h,h],[h,-h,h],[h,h,h],[-h,h,h]
+  ].map(([x,y,z]) => project(x,y,z,rx,ry,cx,cy,scale));
+
+  const faces = [
+    [0,1,2,3], [4,5,6,7], [0,1,5,4],
+    [2,3,7,6], [0,3,7,4], [1,2,6,5]
+  ];
+  const colors = [
+    'rgba(59,130,246,0.12)','rgba(139,92,246,0.12)','rgba(6,182,212,0.1)',
+    'rgba(59,130,246,0.08)','rgba(139,92,246,0.08)','rgba(6,182,212,0.06)'
+  ];
+
+  faces.forEach((f, i) => fillFace(ctx, f.map(i => corners[i]), colors[i]));
+
+  const edges = [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+  edges.forEach(([a,b]) => drawEdge(ctx, corners[a], corners[b], 0.8, 'rgba(99,179,237,0.7)'));
+
+  // draw dots on vertices
+  corners.forEach(p => {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 3, 0, 2*Math.PI);
+    ctx.fillStyle = 'rgba(139,92,246,0.9)';
+    ctx.fill();
+  });
+
+  // Label s
+  ctx.font = '600 12px JetBrains Mono, monospace';
+  ctx.fillStyle = 'rgba(6,182,212,0.9)';
+  const mid = (a, b) => ({ x: (a.x+b.x)/2, y: (a.y+b.y)/2 });
+  const m = mid(corners[0], corners[1]);
+  ctx.fillText(`s=${s}`, m.x - 14, m.y - 10);
+};
+
+// ─── BALOK ───────────────────────────────────────────────────────────────────
+function updateBalok() {
+  const p = getVal('balok-p'), l = getVal('balok-l'), t = getVal('balok-t');
+  setEl('balok-p-val', p); setEl('balok-l-val', l); setEl('balok-t-val', t);
+
+  const V = p * l * t;
+  const LP = 2 * (p*l + p*t + l*t);
+  const DR = fmt(Math.sqrt(p**2 + l**2 + t**2));
+
+  setEl('balok-vol', fmt(V) + ' satuan³');
+  setEl('balok-lp', fmt(LP) + ' satuan²');
+  setEl('balok-dr', DR + ' satuan');
+
+  document.getElementById('balok-formula').innerHTML =
+    `V = p×l×t = ${p}×${l}×${t} = <span class="val">${fmt(V)}</span>\n` +
+    `LP = 2(pl+pt+lt) = <span class="val">${fmt(LP)}</span>\n` +
+    `d = √(p²+l²+t²) = <span class="val">${DR}</span>`;
+
+  steps([
+    `p=${p}, l=${l}, t=${t}`,
+    `V = ${p}×${l}×${t} = ${fmt(V)} satuan³`,
+    `pl=${p*l}, pt=${p*t}, lt=${l*t}`,
+    `LP = 2(${p*l}+${p*t}+${l*t}) = ${fmt(LP)} satuan²`,
+    `Diagonal = √(${p}²+${l}²+${t}²) ≈ ${DR} satuan`
+  ], 'balok-steps');
+}
+
+animFns['balok'] = function(t) {
+  if (currentShape !== 'balok') return;
+  const canvas = document.getElementById('c-balok');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const p = getVal('balok-p'), l = getVal('balok-l'), bh = getVal('balok-t');
+  const maxD = Math.max(p, l, bh);
+  const scale = 11 / maxD * 8.5;
+  const rx = 0.38, ry = t;
+  const cx = W/2, cy = H/2;
+  const [hp, hl, hbh] = [p/2, l/2, bh/2];
+
+  const c = [
+    [-hp,-hbh,-hl],[hp,-hbh,-hl],[hp,hbh,-hl],[-hp,hbh,-hl],
+    [-hp,-hbh,hl],[hp,-hbh,hl],[hp,hbh,hl],[-hp,hbh,hl]
+  ].map(([x,y,z]) => project(x,y,z,rx,ry,cx,cy,scale));
+
+  const faces = [[0,1,2,3],[4,5,6,7],[0,1,5,4],[2,3,7,6],[0,3,7,4],[1,2,6,5]];
+  const colors = ['rgba(245,158,11,0.12)','rgba(16,185,129,0.1)','rgba(245,158,11,0.08)','rgba(16,185,129,0.08)','rgba(59,130,246,0.1)','rgba(59,130,246,0.07)'];
+  faces.forEach((f,i) => fillFace(ctx, f.map(i=>c[i]), colors[i]));
+
+  const edges = [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+  edges.forEach(([a,b]) => drawEdge(ctx, c[a], c[b], 0.7, 'rgba(245,158,11,0.7)'));
+  c.forEach(p => { ctx.beginPath(); ctx.arc(p.x,p.y,3,0,2*Math.PI); ctx.fillStyle='rgba(245,158,11,0.9)'; ctx.fill(); });
+};
+
+// ─── BOLA ────────────────────────────────────────────────────────────────────
+function updateBola() {
+  const r = getVal('bola-r');
+  setEl('bola-r-val', r);
+
+  const V = (4/3) * π * r**3;
+  const LP = 4 * π * r**2;
+  const D = 2 * r;
+  const K = 2 * π * r;
+
+  setEl('bola-vol', fmt(V) + ' satuan³');
+  setEl('bola-lp', fmt(LP) + ' satuan²');
+  setEl('bola-d', fmt(D) + ' satuan');
+  setEl('bola-kb', fmt(K) + ' satuan');
+
+  document.getElementById('bola-formula').innerHTML =
+    `V = 4/3 × π × r³\n  = 4/3 × π × ${r}³ = <span class="val">${fmt(V)}</span>\n` +
+    `LP = 4πr² = 4×π×${r}² = <span class="val">${fmt(LP)}</span>`;
+
+  steps([
+    `r = ${r} satuan, π ≈ 3.14159`,
+    `r³ = ${r}³ = ${fmt(r**3)}`,
+    `V = (4/3) × π × ${fmt(r**3)} = ${fmt(V)} satuan³`,
+    `r² = ${r}² = ${r*r}`,
+    `LP = 4 × π × ${r*r} = ${fmt(LP)} satuan²`
+  ], 'bola-steps');
+}
+
+animFns['bola'] = function(t) {
+  if (currentShape !== 'bola') return;
+  const canvas = document.getElementById('c-bola');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const r = getVal('bola-r');
+  const scale = 9.5 / r * 10;
+  const cx = W/2, cy = H/2;
+  const Rs = r * scale;
+
+  // Gradient sphere
+  const grd = ctx.createRadialGradient(cx - Rs*0.3, cy - Rs*0.3, Rs*0.05, cx, cy, Rs);
+  grd.addColorStop(0, 'rgba(147,197,253,0.5)');
+  grd.addColorStop(0.4, 'rgba(59,130,246,0.35)');
+  grd.addColorStop(1, 'rgba(17,24,39,0.1)');
+  ctx.beginPath(); ctx.arc(cx, cy, Rs, 0, 2*Math.PI);
+  ctx.fillStyle = grd; ctx.fill();
+  ctx.strokeStyle = 'rgba(99,179,237,0.5)'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  // Latitude lines
+  for (let lat = -60; lat <= 60; lat += 30) {
+    const rad = lat * π / 180;
+    const ry2 = Rs * Math.cos(rad);
+    const yOff = Rs * Math.sin(rad);
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + yOff, ry2, ry2 * 0.28, 0, 0, 2*π);
+    ctx.strokeStyle = `rgba(99,179,237,0.25)`; ctx.lineWidth = 1; ctx.stroke();
+  }
+
+  // Longitude lines (animated)
+  for (let i = 0; i < 6; i++) {
+    const angle = t + i * π / 3;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, Rs * Math.abs(Math.cos(angle)), Rs, angle, 0, 2*π);
+    ctx.strokeStyle = `rgba(139,92,246,0.2)`; ctx.lineWidth = 1; ctx.stroke();
+  }
+
+  // Equator
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, Rs, Rs * 0.28, 0, 0, 2*π);
+  ctx.strokeStyle = 'rgba(6,182,212,0.6)'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  // Radius indicator
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Rs, cy);
+  ctx.strokeStyle = 'rgba(245,158,11,0.9)'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.font = '600 12px JetBrains Mono, monospace';
+  ctx.fillStyle = 'rgba(245,158,11,0.9)';
+  ctx.fillText(`r=${r}`, cx + Rs/2 - 14, cy - 10);
+};
+
+// ─── KERUCUT ─────────────────────────────────────────────────────────────────
+function updateKerucut() {
+  const r = getVal('kerucut-r'), t = getVal('kerucut-t');
+  setEl('kerucut-r-val', r); setEl('kerucut-t-val', t);
+
+  const sl = Math.sqrt(r**2 + t**2);
+  const V = (1/3) * π * r**2 * t;
+  const LS = π * r * sl;
+  const LP = LS + π * r**2;
+
+  setEl('kerucut-vol', fmt(V) + ' satuan³');
+  setEl('kerucut-lp', fmt(LP) + ' satuan²');
+  setEl('kerucut-s', fmt(sl) + ' satuan');
+  setEl('kerucut-ls', fmt(LS) + ' satuan²');
+
+  document.getElementById('kerucut-formula').innerHTML =
+    `s = √(r²+t²) = √(${r}²+${t}²) = <span class="val">${fmt(sl)}</span>\n` +
+    `V = 1/3 × π × r² × t = <span class="val">${fmt(V)}</span>\n` +
+    `LP = πr(r+s) = <span class="val">${fmt(LP)}</span>`;
+
+  steps([
+    `r=${r}, t=${t}`,
+    `Garis pelukis s = √(${r}²+${t}²) = √${r**2+t**2} ≈ ${fmt(sl)}`,
+    `V = (1/3)×π×${r}²×${t} = ${fmt(V)} satuan³`,
+    `Luas selimut = π×${r}×${fmt(sl)} = ${fmt(LS)} satuan²`,
+    `LP = Selimut + Alas = ${fmt(LS)} + ${fmt(π*r**2)} = ${fmt(LP)} satuan²`
+  ], 'kerucut-steps');
+}
+
+animFns['kerucut'] = function(t) {
+  if (currentShape !== 'kerucut') return;
+  const canvas = document.getElementById('c-kerucut');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const r = getVal('kerucut-r'), kh = getVal('kerucut-t');
+  const maxD = Math.max(r*2, kh);
+  const scale = 9 / maxD * 10;
+  const Rs = r * scale, Hs = kh * scale;
+
+  const cx = W/2, cy = H/2 + Hs*0.3;
+  const apex = { x: cx, y: cy - Hs };
+  const rx_factor = 0.28 * (1 + 0.05 * Math.sin(t * 2)); // wobble
+
+  // Fill sides
+  const grad = ctx.createLinearGradient(cx - Rs, cy, cx + Rs, cy - Hs);
+  grad.addColorStop(0, 'rgba(16,185,129,0.25)');
+  grad.addColorStop(1, 'rgba(6,182,212,0.05)');
+  ctx.beginPath();
+  ctx.moveTo(apex.x, apex.y);
+  ctx.lineTo(cx - Rs, cy);
+  ctx.ellipse(cx, cy, Rs, Rs * rx_factor, 0, π, 0);
+  ctx.closePath();
+  ctx.fillStyle = grad; ctx.fill();
+  ctx.strokeStyle = 'rgba(16,185,129,0.7)'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  // Ellipse base
+  ctx.beginPath(); ctx.ellipse(cx, cy, Rs, Rs*rx_factor, 0, 0, 2*π);
+  ctx.strokeStyle = 'rgba(6,182,212,0.7)'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = 'rgba(6,182,212,0.08)'; ctx.fill();
+
+  // Height line
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(apex.x, apex.y);
+  ctx.strokeStyle = 'rgba(245,158,11,0.6)'; ctx.lineWidth = 1; ctx.setLineDash([4,3]); ctx.stroke(); ctx.setLineDash([]);
+
+  // Radius line
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx+Rs, cy);
+  ctx.strokeStyle = 'rgba(245,158,11,0.9)'; ctx.lineWidth = 2; ctx.stroke();
+
+  ctx.font = '600 12px JetBrains Mono, monospace';
+  ctx.fillStyle = 'rgba(245,158,11,0.9)';
+  ctx.fillText(`r=${r}`, cx + Rs/2 - 10, cy + 18);
+  ctx.fillStyle = 'rgba(245,158,11,0.7)';
+  ctx.fillText(`t=${kh}`, cx + 8, cy - Hs/2);
+};
+
+// ─── TABUNG ───────────────────────────────────────────────────────────────────
+function updateTabung() {
+  const r = getVal('tabung-r'), t = getVal('tabung-t');
+  setEl('tabung-r-val', r); setEl('tabung-t-val', t);
+
+  const V = π * r**2 * t;
+  const LS = 2 * π * r * t;
+  const LAT = 2 * π * r**2;
+  const LP = LS + LAT;
+
+  setEl('tabung-vol', fmt(V) + ' satuan³');
+  setEl('tabung-lp', fmt(LP) + ' satuan²');
+  setEl('tabung-ls', fmt(LS) + ' satuan²');
+  setEl('tabung-lat', fmt(LAT) + ' satuan²');
+
+  document.getElementById('tabung-formula').innerHTML =
+    `V = π × r² × t = π×${r}²×${t} = <span class="val">${fmt(V)}</span>\n` +
+    `LS = 2πrt = 2×π×${r}×${t} = <span class="val">${fmt(LS)}</span>\n` +
+    `LP = 2πr(r+t) = <span class="val">${fmt(LP)}</span>`;
+
+  steps([
+    `r=${r}, t=${t}, π≈3.14159`,
+    `r² = ${r*r}`,
+    `V = π × ${r*r} × ${t} = ${fmt(V)} satuan³`,
+    `Luas selimut = 2×π×${r}×${t} = ${fmt(LS)} satuan²`,
+    `LP = ${fmt(LS)} + 2×π×${r*r} = ${fmt(LP)} satuan²`
+  ], 'tabung-steps');
+}
+
+animFns['tabung'] = function(t) {
+  if (currentShape !== 'tabung') return;
+  const canvas = document.getElementById('c-tabung');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const r = getVal('tabung-r'), kh = getVal('tabung-t');
+  const maxD = Math.max(r*2, kh);
+  const scale = 9 / maxD * 10;
+  const Rs = r * scale, Hs = kh * scale;
+  const cx = W/2, cy = H/2;
+  const ey = Rs * 0.28;
+  const top = cy - Hs/2, bot = cy + Hs/2;
+
+  // Side fill
+  const sideGrad = ctx.createLinearGradient(cx-Rs, 0, cx+Rs, 0);
+  sideGrad.addColorStop(0, 'rgba(139,92,246,0.1)');
+  sideGrad.addColorStop(0.5, 'rgba(59,130,246,0.2)');
+  sideGrad.addColorStop(1, 'rgba(139,92,246,0.1)');
+  ctx.beginPath();
+  ctx.moveTo(cx - Rs, top);
+  ctx.lineTo(cx - Rs, bot);
+  ctx.ellipse(cx, bot, Rs, ey, 0, Math.PI, 0);
+  ctx.lineTo(cx + Rs, top);
+  ctx.ellipse(cx, top, Rs, ey, 0, 0, Math.PI);
+  ctx.fillStyle = sideGrad; ctx.fill();
+  ctx.strokeStyle = 'rgba(99,179,237,0.6)'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  // Bottom ellipse
+  ctx.beginPath(); ctx.ellipse(cx, bot, Rs, ey, 0, 0, 2*Math.PI);
+  ctx.fillStyle = 'rgba(59,130,246,0.12)'; ctx.fill();
+  ctx.strokeStyle = 'rgba(99,179,237,0.7)'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  // Top ellipse
+  ctx.beginPath(); ctx.ellipse(cx, top, Rs, ey, 0, 0, 2*Math.PI);
+  ctx.fillStyle = 'rgba(139,92,246,0.2)'; ctx.fill();
+  ctx.strokeStyle = 'rgba(167,139,250,0.8)'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  // Animated stripe
+  const phase = (Math.sin(t) + 1) / 2;
+  const stripY = top + Hs * phase;
+  ctx.beginPath(); ctx.ellipse(cx, stripY, Rs, ey, 0, 0, 2*Math.PI);
+  ctx.strokeStyle = `rgba(6,182,212,${0.5 + 0.4*Math.sin(t*2)})`; ctx.lineWidth = 1; ctx.stroke();
+
+  // Radius + height labels
+  ctx.beginPath(); ctx.moveTo(cx, top); ctx.lineTo(cx+Rs, top);
+  ctx.strokeStyle = 'rgba(245,158,11,0.9)'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx+Rs+4, top); ctx.lineTo(cx+Rs+4, bot);
+  ctx.strokeStyle = 'rgba(245,158,11,0.6)'; ctx.lineWidth = 1.5; ctx.setLineDash([3,3]); ctx.stroke(); ctx.setLineDash([]);
+
+  ctx.font = '600 12px JetBrains Mono, monospace';
+  ctx.fillStyle = 'rgba(245,158,11,0.9)';
+  ctx.fillText(`r=${r}`, cx + Rs/2 - 10, top - 10);
+  ctx.fillText(`t=${kh}`, cx + Rs + 10, cy);
+};
+
+// ─── LIMAS ────────────────────────────────────────────────────────────────────
+function updateLimas() {
+  const a = getVal('limas-a'), t = getVal('limas-t');
+  setEl('limas-a-val', a); setEl('limas-t-val', t);
+
+  const V = (1/3) * a**2 * t;
+  const ap = Math.sqrt((a/2)**2 + t**2);
+  const LST = 4 * (1/2) * a * ap;
+  const LP = a**2 + LST;
+
+  setEl('limas-vol', fmt(V) + ' satuan³');
+  setEl('limas-lp', fmt(LP) + ' satuan²');
+  setEl('limas-ap', fmt(ap) + ' satuan');
+  setEl('limas-lst', fmt(LST) + ' satuan²');
+
+  document.getElementById('limas-formula').innerHTML =
+    `V = 1/3 × a² × t = 1/3×${a}²×${t} = <span class="val">${fmt(V)}</span>\n` +
+    `apotema = √((a/2)²+t²) = <span class="val">${fmt(ap)}</span>\n` +
+    `LP = Alas + 4×Segitiga = <span class="val">${fmt(LP)}</span>`;
+
+  steps([
+    `a=${a}, t=${t}`,
+    `Luas alas = a² = ${a}² = ${a*a} satuan²`,
+    `V = (1/3) × ${a*a} × ${t} = ${fmt(V)} satuan³`,
+    `Apotema = √((${a}/2)²+${t}²) = √${fmt((a/2)**2 + t**2)} ≈ ${fmt(ap)}`,
+    `LP = ${a*a} + 4×(½×${a}×${fmt(ap)}) = ${fmt(LP)} satuan²`
+  ], 'limas-steps');
+}
+
+animFns['limas'] = function(t) {
+  if (currentShape !== 'limas') return;
+  const canvas = document.getElementById('c-limas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const a = getVal('limas-a'), kh = getVal('limas-t');
+  const maxD = Math.max(a, kh);
+  const scale = 8 / maxD * 10;
+  const rx = 0.42, ry = t;
+  const cx = W/2, cy = H/2 + kh*scale*0.25;
+
+  const h = a/2, top = [0, -kh, 0];
+  const base = [[-h,0,-h],[h,0,-h],[h,0,h],[-h,0,h]];
+
+  const proj = ([x,y,z]) => project(x,y,z,rx,ry,cx,cy,scale);
+  const apex = proj(top);
+  const bc = base.map(proj);
+
+  // Base face
+  fillFace(ctx, bc, 'rgba(245,158,11,0.12)');
+  ctx.beginPath(); ctx.moveTo(bc[0].x,bc[0].y);
+  bc.forEach(p => ctx.lineTo(p.x,p.y)); ctx.closePath();
+  ctx.strokeStyle='rgba(245,158,11,0.6)'; ctx.lineWidth=1.5; ctx.stroke();
+
+  // Triangular faces
+  const faceColors = [
+    'rgba(59,130,246,0.15)', 'rgba(139,92,246,0.13)',
+    'rgba(6,182,212,0.12)', 'rgba(16,185,129,0.1)'
+  ];
+  for (let i = 0; i < 4; i++) {
+    fillFace(ctx, [bc[i], bc[(i+1)%4], apex], faceColors[i]);
+  }
+
+  // Edges
+  for (let i = 0; i < 4; i++) {
+    drawEdge(ctx, bc[i], bc[(i+1)%4], 0.7, 'rgba(245,158,11,0.7)');
+    drawEdge(ctx, bc[i], apex, 0.6, 'rgba(99,179,237,0.7)');
+  }
+
+  // Dots
+  [...bc, apex].forEach(p => {
+    ctx.beginPath(); ctx.arc(p.x,p.y,3,0,2*Math.PI);
+    ctx.fillStyle='rgba(139,92,246,0.9)'; ctx.fill();
+  });
+
+  // Height indicator
+  const centerBase = proj([0,0,0]);
+  ctx.beginPath(); ctx.moveTo(centerBase.x, centerBase.y); ctx.lineTo(apex.x, apex.y);
+  ctx.strokeStyle='rgba(245,158,11,0.5)'; ctx.lineWidth=1; ctx.setLineDash([4,3]); ctx.stroke(); ctx.setLineDash([]);
+
+  ctx.font='600 12px JetBrains Mono, monospace';
+  ctx.fillStyle='rgba(245,158,11,0.9)';
+  ctx.fillText(`a=${a}`, bc[0].x - 20, bc[0].y + 16);
+  ctx.fillText(`t=${kh}`, apex.x + 8, (apex.y + centerBase.y)/2);
+};
+
+// ─── BOOT ─────────────────────────────────────────────────────────────────────
+updateKubus(); updateBalok(); updateBola(); updateKerucut(); updateTabung(); updateLimas();
+startAnim();
+</script>
+</body>
+</html>
